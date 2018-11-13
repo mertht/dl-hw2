@@ -109,7 +109,7 @@ void col2im(matrix input, int size, int stride, image im)
 {
     int outw = (im.w-1)/stride + 1;
     int outh = (im.h-1)/stride + 1;
-    int rows = im.c*size*size;
+    //int rows = im.c*size*size;
     int cols = outw * outh;
 
     // 5.2 - add values into image im from the column matrix
@@ -251,6 +251,10 @@ layer make_convolutional_layer(int w, int h, int c, int filters, int size, int s
     l.forward  = forward_convolutional_layer;
     l.backward = backward_convolutional_layer;
     l.update   = update_convolutional_layer;
+    // new in dl-hw2
+    l.x = calloc(1, sizeof(matrix));
+    l.rolling_mean = make_matrix(1, filters);
+    l.rolling_variance = make_matrix(1, filters);
     return l;
 }
 

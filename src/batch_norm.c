@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <math.h>
 
+static float epsilon = 1e-10;
+
 matrix mean(matrix x, int spatial)
 {
     matrix m = make_matrix(1, x.cols/spatial);
@@ -22,14 +24,34 @@ matrix mean(matrix x, int spatial)
 matrix variance(matrix x, matrix m, int spatial)
 {
     matrix v = make_matrix(1, x.cols/spatial);
-    // TODO: 7.1 - calculate variance
+    // 7.1 - calculate variance
+
+    int i, j;
+    for (i = 0; i < x.rows; i++) {
+        for (j = 0; j < x.cols; j++) {
+            v.data[j/spatial] += (x.data[i*x.cols + j] - m.data[j/spatial]);
+        }
+    }
+    for(i = 0; i < m.cols; ++i){
+        m.data[i] = m.data[i] / x.rows / spatial;
+    }
     return v;
 }
 
 matrix normalize(matrix x, matrix m, matrix v, int spatial)
 {
+    // 7.2 - normalize array, norm = (x - mean) / sqrt(variance + eps)
     matrix norm = make_matrix(x.rows, x.cols);
-    // TODO: 7.2 - normalize array, norm = (x - mean) / sqrt(variance + eps)
+
+    int i, j;
+    for (i = 0; i < x.rows; i++) {
+        for (j = 0; j < x.cols; j++) {
+            float xij = x.data[i*x.cols + j];
+            float mean = m.data[j/spatial];
+            float var = v.data[j/spatial];
+            norm.data[i*x.cols + j] = (xij - mean) / sqrt(var + epsilon);
+        }
+    }
     return norm;
     
 }
@@ -65,22 +87,66 @@ matrix batch_normalize_forward(layer l, matrix x)
 matrix delta_mean(matrix d, matrix variance, int spatial)
 {
     matrix dm = make_matrix(1, variance.cols);
-    // TODO: 7.3 - calculate dL/dmean
+    // 7.3 - calculate dL/dmean
+
+    int i, j;
+    for (i = 0; variance.rows; i++) { // TODO: should our bounds be d.rows?
+        for (j = 0; variance.cols; j++) {
+            float dldx = d.data[i*d.cols + j];
+            float term2 = -1 / variance.data[j/spatial];
+            dm.data[j/spatial] += dldx * term2;
+        }
+    }
+
     return dm;
 }
 
 matrix delta_variance(matrix d, matrix x, matrix mean, matrix variance, int spatial)
 {
     matrix dv = make_matrix(1, variance.cols);
-    // TODO: 7.4 - calculate dL/dvariance
+    // 7.4 - calculate dL/dvariance
+
+    int i, j;
+    for (i = 0; variance.rows; i++) { // TODO: should our bounds be d.rows?
+        for (j = 0; variance.cols; j++) {
+            float dldx = d.data[i*d.cols + j];
+            float term2 = x.data[i*x.cols + j] - mean.data[j/spatial];
+
+            float inner = variance.data[j/spatial] + epsilon;
+            float outer = sqrt(inner * inner * inner);
+            float term3 = -1 / (float) 2 / outer;
+            dv.data[j/spatial] += dldx * term2 + term3;
+        }
+    }
     return dv;
 }
 
 matrix delta_batch_norm(matrix d, matrix dm, matrix dv, matrix mean, matrix variance, matrix x, int spatial)
 {
-    int i, j;
     matrix dx = make_matrix(d.rows, d.cols);
     // TODO: 7.5 - calculate dL/dx
+
+    int i, j;
+    for (i = 0; i < d.rows; i++) {
+        for (j = 0; j < d.cols; j++) {
+            float x_ij = x.data[i*x.cols + j];
+            float mean_j = mean.data[j/spatial];
+            float var_j = variance.data[j/spatial];
+            float dxhat_ij = d.data[i*d.cols + j];
+            float dm_j = dm.data[j/spatial];
+            float dv_j = dv.data[j/spatial];
+
+            float part1B = 1 / sqrt(var_j + epsilon);
+            float term1 = dxhat_ij * part1B; // TODO: I'm pretty sure this is wrong
+
+            float part2B = 2 * (x_ij - mean_j) / d.rows;
+            float term2 = dv_j * part2B;
+
+            float term3 = dm_j / d.rows;
+
+            dx.data[i*x.cols + j] = term1 + term2 + term3;
+        }
+    }
     return dx;
 }
 
