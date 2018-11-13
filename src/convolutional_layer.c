@@ -46,11 +46,58 @@ matrix im2col(image im, int size, int stride)
     int outh = (im.h-1)/stride + 1;
     int rows = im.c*size*size;
     int cols = outw * outh;
-    matrix col = make_matrix(rows, cols);
+    matrix output = make_matrix(rows, cols);
 
-    // TODO: 5.1 - fill in the column matrix
+    // printf("size: %d\n", size);
+    // printf("im.w: %d, im.h: %d\n", im.w, im.h);
+    // printf("output.rows: %d, output.cols: %d\n", output.rows, output.cols);
 
-    return col;
+    // 5.1 - fill in the column matrix
+    // TODO: verify?
+    int ds = (size - 1) / 2;
+    for (int c = 0; c < im.c; c++) {
+        int col = 0;
+
+        // convert channel c
+        for (int x = 0; x < im.w; x += stride) {
+            for (int y = 0; y < im.h; y += stride) {
+                
+                // Perform one sweep of kernel
+                int row = c * size * size;
+                for (int dx = x - ds; dx < x + ds; dx++) {
+                    for (int dy = y - ds; dy < y + ds; dy++) {
+                        float pixel = get_pixel(im, x + dx, y + dy, c);
+                        int index = row * output.cols + col;
+
+                        //printf("row: %d/%d, col: %d/%d\n", row, output.rows, col, output.cols);
+
+                        // check row/col
+                        assert(row >= 0);
+                        assert(row < rows);
+                        assert(col >= 0);
+                        assert(col < cols);
+
+                        // check bounds
+                        assert(index >= 0);
+                        assert(index < output.rows * output.cols);
+
+                        output.data[index] = pixel;
+                        row++;
+                    }
+                }
+
+                // end sweep of kernel
+                col++;
+            }
+        }
+        // end convert channel
+    }
+
+    assert(output.rows == rows);
+    assert(output.cols == cols);
+
+    
+    return output;
 }
 
 // The reverse of im2col, add elements back into image
@@ -58,15 +105,35 @@ matrix im2col(image im, int size, int stride)
 // int size: kernel size
 // int stride: convolution stride
 // image im: image to add elements back into
-void col2im(matrix col, int size, int stride, image im)
+void col2im(matrix input, int size, int stride, image im)
 {
     int outw = (im.w-1)/stride + 1;
     int outh = (im.h-1)/stride + 1;
     int rows = im.c*size*size;
     int cols = outw * outh;
 
-    // TODO: 5.2 - add values into image im from the column matrix
-
+    // 5.2 - add values into image im from the column matrix
+    // TODO: verify?
+    int ds = (size - 1) / 2;
+    for (int c = 0; c < im.c; c++) {
+        int col = 0;
+        for (int x = 0; x < im.w; x += stride) {
+            for (int y = 0; y < im.h; y += stride) {
+                int row = c * size * size;
+                // Perform one sweep of kernel
+                for (int dx = x - ds; dx <= x + ds; dx++) {
+                    for (int dy = y - ds; dy <= y + ds; dy++) {
+                        int index = row * cols + col;
+                        float new_pixel = input.data[index];
+                        float cur_pixel = get_pixel(im, x + dx, y + dy, c);
+                        set_pixel(im, x + dx, y + dy, c, cur_pixel + new_pixel);
+                        row++;
+                    }
+                }
+                col++;
+            }
+        }
+    }
 }
 
 // Run a convolutional layer on input
@@ -150,7 +217,12 @@ void backward_convolutional_layer(layer l, matrix prev_delta)
 // float decay: l2 regularization term
 void update_convolutional_layer(layer l, float rate, float momentum, float decay)
 {
-    // TODO: 5.3 Update the weights, similar to the connected layer.
+    // 5.3 Update the weights, similar to the connected layer.
+    // TODO: verify?
+    axpy_matrix(-decay, l.w, l.dw);
+    axpy_matrix(rate, l.dw, l.w);
+    scal_matrix(momentum, l.dw);
+    axpy_matrix(rate, l.db, l.b);
 }
 
 // Make a new convolutional layer

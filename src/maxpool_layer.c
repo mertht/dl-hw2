@@ -4,7 +4,6 @@
 #include <float.h>
 #include "uwnet.h"
 
-
 // Run a maxpool layer on input
 // layer l: pointer to layer to run
 // matrix in: input to layer
@@ -15,7 +14,21 @@ matrix forward_maxpool_layer(layer l, matrix in)
     int outh = (l.height-1)/l.stride + 1;
     matrix out = make_matrix(in.rows, outw*outh*l.channels);
 
-    // TODO: 6.1 - iterate over the input and fill in the output with max values
+    // 6.1 - iterate over the input and fill in the output with max values
+    // TODO: is this rite??
+
+    for (int x = 0; x < in.rows; x++) {
+        int i = x / l.stride;
+        for (int y = 0; y < in.cols; y++) {
+            int j = y / l.stride;
+            int out_index = i * outw + j;
+            float prev_val = out.data[out_index];
+            float test_val = in.data[x*in.cols + y];
+            if (test_val > prev_val) {
+                out.data[out_index] = test_val;
+            }
+        }
+    }
 
     l.in[0] = in;
     free_matrix(l.out[0]);
@@ -37,10 +50,26 @@ void backward_maxpool_layer(layer l, matrix prev_delta)
     int outw = (l.width-1)/l.stride + 1;
     int outh = (l.height-1)/l.stride + 1;
 
-    // TODO: 6.2 - find the max values in the input again and fill in the
+    // 6.2 - find the max values in the input again and fill in the
     // corresponding delta with the delta from the output. This should be
     // similar to the forward method in structure.
-
+    // TODO: boii
+    for (int x = 0; x < in.rows; x++) {
+        int i = x / l.stride;
+        for (int y = 0; y < in.cols; y++) {
+            int j = y / l.stride;
+            int out_index = i * outw + j;
+            float prev_val = out.data[out_index];
+            float test_val = in.data[x*in.cols + y];
+            if (test_val == prev_val) {
+                // (x, y) was propgated fowards, so we need to pass error back
+                int index = x*in.cols + y;
+                assert(index >= 0);
+                assert(index < delta.rows * delta.cols);
+                delta.data[x*in.cols + y] = prev_delta.data[out_index];
+            }
+        }
+    }
 }
 
 // Update maxpool layer
