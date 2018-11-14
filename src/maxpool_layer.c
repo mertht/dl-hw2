@@ -48,7 +48,7 @@ void backward_maxpool_layer(layer l, matrix prev_delta)
     matrix delta = l.delta[0];
 
     int outw = (l.width-1)/l.stride + 1;
-    int outh = (l.height-1)/l.stride + 1;
+    // int outh = (l.height-1)/l.stride + 1;
 
     // 6.2 - find the max values in the input again and fill in the
     // corresponding delta with the delta from the output. This should be
