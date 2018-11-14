@@ -4,64 +4,38 @@
 #include <float.h>
 #include "uwnet.h"
 
+
 // Run a maxpool layer on input
 // layer l: pointer to layer to run
 // matrix in: input to layer
 // returns: the result of running the layer
 matrix forward_maxpool_layer(layer l, matrix in)
 {
+    int i, j, k, m;
+    int dx, dy;
+
+    int pad = -(l.size-1)/2;
+
     int outw = (l.width-1)/l.stride + 1;
     int outh = (l.height-1)/l.stride + 1;
     matrix out = make_matrix(in.rows, outw*outh*l.channels);
-
-    int num; // data point number corresponding to 
-    for (num = 0; num < in.rows; num++) {
-
-        float *ii = &in.data[num * in.cols]; // "input image"
-        float *oi = &out.data[num * out.cols]; // "prev_delta image"
-
-        for (int c = 0; c < l.channels; c++) {
-
-            float *ic = &ii[c * l.height * l.width]; // "input channel"
-            float *oc = &oi[c * outw * outh]; // "delta channel"
-
-            for (int pdx = 0; pdx < outh; pdx++) {
-                for (int pdy = 0; pdy < outw; pdy++) {
-                    
-                    int out_index = pdx * outw + pdy; // index in output (small) matrix
-                    int maxi = 0;
-
-                    int xbase = pdx * l.stride;
-                    int ybase = pdy * l.stride;
-
-                    // search the "pool" for max value
-                    for (int dx = 0; dx < l.stride; dx++) {
-                        for (int dy = 0; dy < l.stride; dy++) {
-
-                            // indices in delta (and in) array
-                            int x = xbase + dx;
-                            int y = ybase + dy;
-                            
-                            // coordinate assertions
-                            assert(x >= 0);
-                            assert(x < l.height);
-                            assert(y >= 0);
-                            assert(y < l.width);
-
-                            int index = x * l.width + y;
-
-                            // index assertions
-                            assert(index >= 0);
-                            assert(index < out.cols * out.rows);
-
-                            if (ic[index] > ic[maxi]) {
-                                maxi = index;
+    for(i = 0; i < in.rows; ++i){
+        for(j = 0; j < l.channels; ++j){
+            for(k = 0; k < outh; ++k){
+                for(m = 0; m < outw; ++m){
+                    float max = -FLT_MAX;
+                    for(dy = 0; dy < l.size; ++dy){
+                        for(dx = 0; dx < l.size; ++dx){
+                            int inx = m*l.stride + pad + dx;
+                            int iny = k*l.stride + pad + dy;
+                            int index = i*in.cols + j*l.height*l.width + iny*l.width + inx;
+                            if (inx >= 0 && inx < l.width && iny >= 0 && iny < l.height && in.data[index] > max){
+                                max = in.data[index];
                             }
                         }
                     }
-
-                    // assign that max value backwards
-                    oc[out_index] = ic[maxi];
+                    int index = i*out.cols + j*outh*outw + k*outw + m;
+                    out.data[index] = max;
                 }
             }
         }
@@ -84,63 +58,33 @@ void backward_maxpool_layer(layer l, matrix prev_delta)
     matrix out   = l.out[0];
     matrix delta = l.delta[0];
 
+    int i, j, k, m;
+    int dx, dy;
+
+    int pad = -(l.size-1)/2;
+
     int outw = (l.width-1)/l.stride + 1;
     int outh = (l.height-1)/l.stride + 1;
-
-    // 6.2 - find the max values in the input again and fill in the
-    // corresponding delta with the delta from the output. This should be
-    // similar to the forward method in structure.
-    
-    int num; // data point number corresponding to 
-    for (num = 0; num < in.rows; num++) {
-
-        float *ii = &in.data[num * in.cols]; // "input image"
-        float *di = &delta.data[num * delta.cols]; // "delta image"
-        float *pdi = &prev_delta.data[num * prev_delta.cols]; // "prev_delta image"
-
-        for (int c = 0; c < l.channels; c++) {
-
-            float *ic = &ii[c * l.height * l.width]; // "input channel"
-            float *dc = &di[c * outw * outh]; // "delta channel"
-            float *pdc = &pdi[c * l.height * l.width]; // "prev_delta channel"
-
-            for (int pdx = 0; pdx < outh; pdx++) {
-                for (int pdy = 0; pdy < outw; pdy++) {
-                    
-                    int out_index = pdx * outw + pdy; // index in output (small) matrix
+    for(i = 0; i < in.rows; ++i){
+        for(j = 0; j < l.channels; ++j){
+            for(k = 0; k < outh; ++k){
+                for(m = 0; m < outw; ++m){
+                    float max = -FLT_MAX;
                     int maxi = 0;
-
-                    int xbase = pdx * l.stride;
-                    int ybase = pdy * l.stride;
-
-                    // search the "pool" for max value
-                    for (int dx = 0; dx < l.stride; dx++) {
-                        for (int dy = 0; dy < l.stride; dy++) {
-
-                            // indices in delta (and in) array
-                            int x = xbase + dx;
-                            int y = ybase + dy;
-                            
-                            // coordinate assertions
-                            assert(x >= 0);
-                            assert(x < l.height);
-                            assert(y >= 0);
-                            assert(y < l.width);
-
-                            int index = x * l.width + y;
-
-                            // index assertions
-                            assert(index >= 0);
-                            assert(index < out.cols * out.rows);
-
-                            if (ic[index] > ic[maxi]) {
+                    for(dy = 0; dy < l.size; ++dy){
+                        for(dx = 0; dx < l.size; ++dx){
+                            int inx = m*l.stride + pad + dx;
+                            int iny = k*l.stride + pad + dy;
+                            int index = i*in.cols + j*l.height*l.width + iny*l.width + inx;
+                            if (inx >= 0 && inx < l.width && iny >= 0 && iny < l.height && in.data[index] > max){
+                                max = in.data[index];
                                 maxi = index;
                             }
+
                         }
                     }
-
-                    // assign that max value backwards
-                    pdc[maxi] = dc[out_index];
+                    int index = i*out.cols + j*outh*outw + k*outw + m;
+                    prev_delta.data[maxi] = delta.data[index];
                 }
             }
         }
