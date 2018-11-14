@@ -14,18 +14,55 @@ matrix forward_maxpool_layer(layer l, matrix in)
     int outh = (l.height-1)/l.stride + 1;
     matrix out = make_matrix(in.rows, outw*outh*l.channels);
 
-    // 6.1 - iterate over the input and fill in the output with max values
-    // TODO: is this rite??
+    int num; // data point number corresponding to 
+    for (num = 0; num < in.rows; num++) {
 
-    for (int x = 0; x < in.rows; x++) {
-        int i = x / l.stride;
-        for (int y = 0; y < in.cols; y++) {
-            int j = y / l.stride;
-            int out_index = i * outw + j;
-            float prev_val = out.data[out_index];
-            float test_val = in.data[x*in.cols + y];
-            if (test_val > prev_val) {
-                out.data[out_index] = test_val;
+        float *ii = &in.data[num * in.cols]; // "input image"
+        float *oi = &out.data[num * out.cols]; // "prev_delta image"
+
+        for (int c = 0; c < l.channels; c++) {
+
+            float *ic = &ii[c * l.height * l.width]; // "input channel"
+            float *oc = &oi[c * outw * outh]; // "delta channel"
+
+            for (int pdx = 0; pdx < outh; pdx++) {
+                for (int pdy = 0; pdy < outw; pdy++) {
+                    
+                    int out_index = pdx * outw + pdy; // index in output (small) matrix
+                    int maxi = 0;
+
+                    int xbase = pdx * l.stride;
+                    int ybase = pdy * l.stride;
+
+                    // search the "pool" for max value
+                    for (int dx = 0; dx < l.stride; dx++) {
+                        for (int dy = 0; dy < l.stride; dy++) {
+
+                            // indices in delta (and in) array
+                            int x = xbase + dx;
+                            int y = ybase + dy;
+                            
+                            // coordinate assertions
+                            assert(x >= 0);
+                            assert(x < l.height);
+                            assert(y >= 0);
+                            assert(y < l.width);
+
+                            int index = x * l.width + y;
+
+                            // index assertions
+                            assert(index >= 0);
+                            assert(index < out.cols * out.rows);
+
+                            if (ic[index] > ic[maxi]) {
+                                maxi = index;
+                            }
+                        }
+                    }
+
+                    // assign that max value backwards
+                    oc[out_index] = ic[maxi];
+                }
             }
         }
     }
@@ -48,25 +85,63 @@ void backward_maxpool_layer(layer l, matrix prev_delta)
     matrix delta = l.delta[0];
 
     int outw = (l.width-1)/l.stride + 1;
-    // int outh = (l.height-1)/l.stride + 1;
+    int outh = (l.height-1)/l.stride + 1;
 
     // 6.2 - find the max values in the input again and fill in the
     // corresponding delta with the delta from the output. This should be
     // similar to the forward method in structure.
-    // TODO: boii
-    for (int x = 0; x < in.rows; x++) {
-        int i = x / l.stride;
-        for (int y = 0; y < in.cols; y++) {
-            int j = y / l.stride;
-            int out_index = i * outw + j;
-            float prev_val = out.data[out_index];
-            float test_val = in.data[x*in.cols + y];
-            if (test_val == prev_val) {
-                // (x, y) was propgated fowards, so we need to pass error back
-                int index = x*in.cols + y;
-                assert(index >= 0);
-                assert(index < delta.rows * delta.cols);
-                delta.data[x*in.cols + y] = prev_delta.data[out_index];
+    
+    int num; // data point number corresponding to 
+    for (num = 0; num < in.rows; num++) {
+
+        float *ii = &in.data[num * in.cols]; // "input image"
+        float *di = &delta.data[num * delta.cols]; // "delta image"
+        float *pdi = &prev_delta.data[num * prev_delta.cols]; // "prev_delta image"
+
+        for (int c = 0; c < l.channels; c++) {
+
+            float *ic = &ii[c * l.height * l.width]; // "input channel"
+            float *dc = &di[c * outw * outh]; // "delta channel"
+            float *pdc = &pdi[c * l.height * l.width]; // "prev_delta channel"
+
+            for (int pdx = 0; pdx < outh; pdx++) {
+                for (int pdy = 0; pdy < outw; pdy++) {
+                    
+                    int out_index = pdx * outw + pdy; // index in output (small) matrix
+                    int maxi = 0;
+
+                    int xbase = pdx * l.stride;
+                    int ybase = pdy * l.stride;
+
+                    // search the "pool" for max value
+                    for (int dx = 0; dx < l.stride; dx++) {
+                        for (int dy = 0; dy < l.stride; dy++) {
+
+                            // indices in delta (and in) array
+                            int x = xbase + dx;
+                            int y = ybase + dy;
+                            
+                            // coordinate assertions
+                            assert(x >= 0);
+                            assert(x < l.height);
+                            assert(y >= 0);
+                            assert(y < l.width);
+
+                            int index = x * l.width + y;
+
+                            // index assertions
+                            assert(index >= 0);
+                            assert(index < out.cols * out.rows);
+
+                            if (ic[index] > ic[maxi]) {
+                                maxi = index;
+                            }
+                        }
+                    }
+
+                    // assign that max value backwards
+                    pdc[maxi] = dc[out_index];
+                }
             }
         }
     }

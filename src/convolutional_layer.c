@@ -64,8 +64,8 @@ matrix im2col(image im, int size, int stride)
                 
                 // Perform one sweep of kernel
                 int row = c * size * size;
-                for (int dx = x - ds; dx < x + ds; dx++) {
-                    for (int dy = y - ds; dy < y + ds; dy++) {
+                for (int dx = -ds; dx <= ds; dx++) {
+                    for (int dy = -ds; dy <= ds; dy++) {
                         float pixel = get_pixel(im, x + dx, y + dy, c);
                         int index = row * output.cols + col;
 
@@ -109,7 +109,7 @@ void col2im(matrix input, int size, int stride, image im)
 {
     int outw = (im.w-1)/stride + 1;
     int outh = (im.h-1)/stride + 1;
-    //int rows = im.c*size*size;
+    int rows = im.c*size*size;
     int cols = outw * outh;
 
     // 5.2 - add values into image im from the column matrix
@@ -121,8 +121,8 @@ void col2im(matrix input, int size, int stride, image im)
             for (int y = 0; y < im.h; y += stride) {
                 int row = c * size * size;
                 // Perform one sweep of kernel
-                for (int dx = x - ds; dx <= x + ds; dx++) {
-                    for (int dy = y - ds; dy <= y + ds; dy++) {
+                for (int dx = -ds; dx <= ds; dx++) {
+                    for (int dy = -ds; dy <= ds; dy++) {
                         int index = row * cols + col;
                         float new_pixel = input.data[index];
                         float cur_pixel = get_pixel(im, x + dx, y + dy, c);
