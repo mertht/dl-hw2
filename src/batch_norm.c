@@ -6,10 +6,6 @@
 
 static const float epsilon = 1e-10;
 
-int is_valid_float(float x) {
-    return x * 0.0 == 0.0;
-}
-
 matrix mean(matrix x, int spatial)
 {
     matrix m = make_matrix(1, x.cols/spatial);
@@ -21,8 +17,6 @@ matrix mean(matrix x, int spatial)
     }
     for(i = 0; i < m.cols; ++i){
         m.data[i] = m.data[i] / x.rows / spatial;
-        // TODO remove later
-        assert(is_valid_float(m.data[i]));
     }
     return m;
 }
@@ -44,8 +38,6 @@ matrix variance(matrix x, matrix m, int spatial)
     }
     for(i = 0; i < m.cols; ++i){
         v.data[i] = v.data[i] / x.rows / spatial;
-        // TODO remove later
-        assert(is_valid_float(v.data[i]));
     }
     return v;
 }
@@ -63,8 +55,6 @@ matrix normalize(matrix x, matrix m, matrix v, int spatial)
             float var = v.data[j/spatial];
 
             norm.data[i*x.cols + j] = (xij - mean) / sqrt(var + epsilon);
-            // TODO remove later
-            assert(is_valid_float(norm.data[i*x.cols + j]));
         }
     }
     return norm;
@@ -111,8 +101,6 @@ matrix delta_mean(matrix d, matrix variance, int spatial)
             float var = variance.data[j/spatial];
             float term2 = -1 / (var + epsilon);
             dm.data[j/spatial] += dxhat_ij * term2;
-            // TODO remove later
-            assert(is_valid_float(dm.data[j/spatial]));
         }
     }
     
@@ -135,8 +123,6 @@ matrix delta_variance(matrix d, matrix x, matrix mean, matrix variance, int spat
             float partC = -0.5 * powf(inner, -1.5);
 
             dv.data[j/spatial] += dxhat_ij * partB * partC;
-            // TODO remove later
-            assert(is_valid_float(dv.data[j/spatial]));
         }
     }
     return dv;
@@ -170,8 +156,6 @@ matrix delta_batch_norm(matrix d, matrix dm, matrix dv, matrix mean, matrix vari
             float term3 = dm_j / m;
 
             dx.data[i*x.cols + j] = term1 + term2 + term3;
-            // TODO remove later
-            assert(is_valid_float(dx.data[i*x.cols + j]));
         }
     }
     return dx;
