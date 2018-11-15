@@ -107,12 +107,17 @@ matrix forward_convolutional_layer(layer l, matrix in)
     for(i = 0; i < in.rows; ++i){
         image example = float_to_image(in.data + i*in.cols, l.width, l.height, l.channels);
         matrix x = im2col(example, l.size, l.stride);
+        //if(i==0) printf("%d %d %d\n", l.w.rows, l.w.cols, x.cols);
         matrix wx = matmul(l.w, x);
         for(j = 0; j < wx.rows*wx.cols; ++j){
             out.data[i*out.cols + j] = wx.data[j];
         }
         free_matrix(x);
         free_matrix(wx);
+    }
+    if(l.batchnorm){
+            matrix xnorm = batch_normalize_forward(l, out);
+            out = xnorm;
     }
     forward_convolutional_bias(out, l.b);
     activate_matrix(out, l.activation);
@@ -139,6 +144,11 @@ void backward_convolutional_layer(layer l, matrix prev_delta)
 
     gradient_matrix(out, l.activation, delta);
     backward_convolutional_bias(delta, l.db);
+		if(l.batchnorm){
+				matrix dx = batch_normalize_backward(l, delta);
+				free_matrix(delta);
+				l.delta[0] = delta = dx;
+		}
     int i;
     matrix wt = transpose_matrix(l.w);
     for(i = 0; i < in.rows; ++i){

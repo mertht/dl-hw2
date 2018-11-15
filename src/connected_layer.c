@@ -40,8 +40,16 @@ matrix forward_connected_layer(layer l, matrix in)
     // TODO: 3.1 - run the network forward
     //matrix out = make_matrix(in.rows, l.w.cols); // Going to want to change this!
     matrix out = matmul(in, l.w);
+    
+    // If batchnorm is enabled, compute it!
+    if(l.batchnorm){
+        matrix xnorm = batch_normalize_forward(l, out);
+        out = xnorm;
+    }
+
     forward_bias(out, l.b);
     activate_matrix(out, l.activation);
+
 
     // Saving our input and output and making a new delta matrix to hold errors
     // Probably don't change this
@@ -70,6 +78,13 @@ void backward_connected_layer(layer l, matrix prev_delta)
     // Calculate the updates for the bias terms using backward_bias
     // The current bias deltas are stored in l.db
     backward_bias(delta, l.db);
+
+    // If batchnorm is enabled, compute it!
+    if(l.batchnorm){
+        matrix dx = batch_normalize_backward(l, delta);
+        free_matrix(delta);
+        l.delta[0] = delta = dx;
+    }
 
     // Then calculate dL/dw. Use axpy to add this dL/dw into any previously stored
     // updates for our weights, which are stored in l.dw

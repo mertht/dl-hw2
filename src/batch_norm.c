@@ -4,7 +4,11 @@
 #include <assert.h>
 #include <math.h>
 
-static float epsilon = 1e-10;
+static const float epsilon = 1e-10;
+
+int is_valid_float(float x) {
+    return x * 0.0 == 0.0;
+}
 
 matrix mean(matrix x, int spatial)
 {
@@ -17,6 +21,8 @@ matrix mean(matrix x, int spatial)
     }
     for(i = 0; i < m.cols; ++i){
         m.data[i] = m.data[i] / x.rows / spatial;
+        // TODO remove later
+        assert(is_valid_float(m.data[i]));
     }
     return m;
 }
@@ -29,12 +35,17 @@ matrix variance(matrix x, matrix m, int spatial)
     int i, j;
     for (i = 0; i < x.rows; i++) {
         for (j = 0; j < x.cols; j++) {
-            float inner = (x.data[i*x.cols + j] - m.data[j/spatial]);
+            float x_ij = x.data[i*x.cols + j];
+            float mean = m.data[j/spatial];
+
+            float inner = x_ij - mean;
             v.data[j/spatial] += inner * inner;
         }
     }
     for(i = 0; i < m.cols; ++i){
-        m.data[i] = m.data[i] / x.rows / spatial;
+        v.data[i] = v.data[i] / x.rows / spatial;
+        // TODO remove later
+        assert(is_valid_float(v.data[i]));
     }
     return v;
 }
@@ -50,7 +61,10 @@ matrix normalize(matrix x, matrix m, matrix v, int spatial)
             float xij = x.data[i*x.cols + j];
             float mean = m.data[j/spatial];
             float var = v.data[j/spatial];
+
             norm.data[i*x.cols + j] = (xij - mean) / sqrt(var + epsilon);
+            // TODO remove later
+            assert(is_valid_float(norm.data[i*x.cols + j]));
         }
     }
     return norm;
@@ -58,6 +72,7 @@ matrix normalize(matrix x, matrix m, matrix v, int spatial)
 
 matrix batch_normalize_forward(layer l, matrix x)
 {
+    
     float s = .1;
     int spatial = x.cols / l.rolling_mean.cols;
     if (x.rows == 1){
@@ -90,12 +105,14 @@ matrix delta_mean(matrix d, matrix variance, int spatial)
     // 7.3 - calculate dL/dmean
 
     int i, j;
-    for (i = 0; d.rows; i++) {
-        for (j = 0; d.cols; j++) {
+    for (i = 0; i < d.rows; i++) {
+        for (j = 0; j < d.cols; j++) {
             float dxhat_ij = d.data[i*d.cols + j];
             float var = variance.data[j/spatial];
             float term2 = -1 / (var + epsilon);
             dm.data[j/spatial] += dxhat_ij * term2;
+            // TODO remove later
+            assert(is_valid_float(dm.data[j/spatial]));
         }
     }
     
@@ -108,15 +125,18 @@ matrix delta_variance(matrix d, matrix x, matrix mean, matrix variance, int spat
     // 7.4 - calculate dL/dvariance
 
     int i, j;
-    for (i = 0; d.rows; i++) {
-        for (j = 0; d.cols; j++) {
+    for (i = 0; i < d.rows; i++) {
+        for (j = 0; j < d.cols; j++) {
+            float x_ij = x.data[i*x.cols + j];
             float dxhat_ij = d.data[i*d.cols + j];
-            float partB = x.data[i*x.cols + j] - mean.data[j/spatial];
+            float partB = x_ij - mean.data[j/spatial];
 
             float inner = variance.data[j/spatial] + epsilon;
-            float outer = sqrt(inner * inner * inner);
-            float partC = -1 / (float) 2 / outer;
-            dv.data[j/spatial] += dxhat_ij * partB + partC;
+            float partC = -0.5 * powf(inner, -1.5);
+
+            dv.data[j/spatial] += dxhat_ij * partB * partC;
+            // TODO remove later
+            assert(is_valid_float(dv.data[j/spatial]));
         }
     }
     return dv;
@@ -127,7 +147,7 @@ matrix delta_batch_norm(matrix d, matrix dm, matrix dv, matrix mean, matrix vari
     matrix dx = make_matrix(d.rows, d.cols);
     // 7.5 - calculate dL/dx
 
-    int m = d.rows;
+    int m = d.rows * spatial;
 
     int i, j;
     for (i = 0; i < d.rows; i++) {
@@ -150,6 +170,8 @@ matrix delta_batch_norm(matrix d, matrix dm, matrix dv, matrix mean, matrix vari
             float term3 = dm_j / m;
 
             dx.data[i*x.cols + j] = term1 + term2 + term3;
+            // TODO remove later
+            assert(is_valid_float(dx.data[i*x.cols + j]));
         }
     }
     return dx;
